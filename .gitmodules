@@ -16,3 +16,6 @@
 [submodule "ploshtadka-frontend"]
 	path = ploshtadka-frontend
 	url = git@github.com:PloshtadkaBG/ploshtadka-frontend.git
+[submodule "ploshtadka-notifications-ms"]
+	path = ploshtadka-notifications-ms
+	url = git@github.com:PloshtadkaBG/ploshtadka-notifications-ms.git

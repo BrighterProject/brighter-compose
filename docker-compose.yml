@@ -57,12 +57,15 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       CONTACT_EMAIL: ${CONTACT_EMAIL}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
+      NOTIFICATIONS_MS_URL: ${NOTIFICATIONS_MS_URL:-http://notifications-ms:8004}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
       FORWARDED_ALLOW_IPS: "*"
     networks:
       - backend
     depends_on:
       - db
       - redis
+      - notifications-ms
     labels:
       - "traefik.enable=true"
       # strip /api prefix before forwarding
@@ -184,7 +187,7 @@ services:
     environment:
       DB_URL: ${DB_URL:-postgres://ploshtadka:ploshtadka@db:5432/ploshtadka}
       RESEND_API_KEY: ${RESEND_API_KEY}
-      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Ploshtadka.BG <noreply@ploshtadka.bg>}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Ploshtadka.BG <noreply@площадка.бг>}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FORWARDED_ALLOW_IPS: "*"
