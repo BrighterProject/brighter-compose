@@ -1,13 +1,13 @@
 services:
   frontend:
     build:
-      context: ./ploshtadka-frontend
+      context: ./brighter-frontend
       target: deps
     command: sh -c "bun install && bun run dev -- --host 0.0.0.0 --port 3000"
     environment:
       VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY}
     volumes:
-      - ./ploshtadka-frontend:/app
+      - ./brighter-frontend:/app
       - bun-cache:/root/.bun/install/cache
     networks:
       - backend
@@ -20,11 +20,11 @@ services:
 
   admin-panel:
     build:
-      context: ./ploshtadka-admin-panel
+      context: ./brighter-admin-panel
       target: deps
     command: sh -c "bun install && bun run dev -- --host 0.0.0.0 --port 5173"
     volumes:
-      - ./ploshtadka-admin-panel:/app
+      - ./brighter-admin-panel:/app
       - bun-cache:/root/.bun/install/cache
     environment:
       VITE_BASENAME: "/admin"

@@ -1,21 +1,21 @@
-[submodule "ploshtadka-users-ms"]
-	path = ploshtadka-users-ms
-	url = git@github.com:PloshtadkaBG/ploshtadka-users-ms.git
-[submodule "ploshtadka-venues-ms"]
-	path = ploshtadka-venues-ms
-	url = git@github.com:PloshtadkaBG/ploshtadka-venues-ms.git
-[submodule "ploshtadka-admin-panel"]
-	path = ploshtadka-admin-panel
-	url = git@github.com:PloshtadkaBG/ploshtadka-admin-panel.git
-[submodule "ploshtadka-bookings-ms"]
-	path = ploshtadka-bookings-ms
-	url = git@github.com:PloshtadkaBG/ploshtadka-bookings-ms.git
-[submodule "ploshtadka-payments-ms"]
-	path = ploshtadka-payments-ms
-	url = git@github.com:PloshtadkaBG/ploshtadka-payments-ms.git
-[submodule "ploshtadka-frontend"]
-	path = ploshtadka-frontend
-	url = git@github.com:PloshtadkaBG/ploshtadka-frontend.git
-[submodule "ploshtadka-notifications-ms"]
-	path = ploshtadka-notifications-ms
-	url = git@github.com:PloshtadkaBG/ploshtadka-notifications-ms.git
+[submodule "brighter-users-ms"]
+	path = brighter-users-ms
+	url = git@github.com:BrighterProject/brighter-users-ms.git
+[submodule "brighter-properties-ms"]
+	path = brighter-properties-ms
+	url = git@github.com:BrighterProject/brighter-properties-ms.git
+[submodule "brighter-admin-panel"]
+	path = brighter-admin-panel
+	url = git@github.com:BrighterProject/brighter-admin-panel.git
+[submodule "brighter-bookings-ms"]
+	path = brighter-bookings-ms
+	url = git@github.com:BrighterProject/brighter-bookings-ms.git
+[submodule "brighter-payments-ms"]
+	path = brighter-payments-ms
+	url = git@github.com:BrighterProject/brighter-payments-ms.git
+[submodule "brighter-frontend"]
+	path = brighter-frontend
+	url = git@github.com:BrighterProject/brighter-frontend.git
+[submodule "brighter-notifications-ms"]
+	path = brighter-notifications-ms
+	url = git@github.com:BrighterProject/brighter-notifications-ms.git

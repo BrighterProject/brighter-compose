@@ -1,6 +1,6 @@
 ## Project Overview
 
-**PloshtadkaBG** — a sports venue booking platform (Bulgaria). Monorepo of independent git repos managed via Docker Compose.
+**BrighterProject** — a sports property booking platform (Bulgaria). Monorepo of independent git repos managed via Docker Compose.
 
 ## Architecture
 
@@ -8,13 +8,13 @@
 
 | Service | Language | Port | Path prefix |
 |---|---|---|---|
-| `ploshtadka-users-ms` | Python/FastAPI | 8000 | `/auth`, `/users`, `/scopes` |
-| `ploshtadka-venues-ms` | Python/FastAPI | 8001 | `/venues` |
-| `ploshtadka-bookings-ms` | Python/FastAPI | 8002 | `/bookings` |
-| `ploshtadka-payments-ms` | Python/FastAPI | 8003 | `/payments` |
-| `ploshtadka-notifications-ms` | Python/FastAPI | 8004 | `/notifications` |
-| `ploshtadka-frontend` | React/TanStack | — | `/` |
-| `ploshtadka-admin-panel` | React/React Router | — | `/admin` |
+| `brighter-users-ms` | Python/FastAPI | 8000 | `/auth`, `/users`, `/scopes` |
+| `brighter-properties-ms` | Python/FastAPI | 8001 | `/properties` |
+| `brighter-bookings-ms` | Python/FastAPI | 8002 | `/bookings` |
+| `brighter-payments-ms` | Python/FastAPI | 8003 | `/payments` |
+| `brighter-notifications-ms` | Python/FastAPI | 8004 | `/notifications` |
+| `brighter-frontend` | React/TanStack | — | `/` |
+| `brighter-admin-panel` | React/React Router | — | `/admin` |
 | Traefik | — | 80/8080 | API gateway + dashboard |
 | PostgreSQL 16 | — | 5432 | shared DB in dev |
 | pgAdmin | — | — | `/pgadmin` |
@@ -27,7 +27,7 @@
    - `X-User-Id` (UUID)
    - `X-Username` (string)
    - `X-User-Scopes` (space-separated)
-4. Downstream services read these headers in `app/deps.py::get_current_user()` — **they never validate the JWT themselves**. Do not add JWT validation inside venues-ms or bookings-ms; only users-ms does JWT validation.
+4. Downstream services read these headers in `app/deps.py::get_current_user()` — **they never validate the JWT themselves**. Do not add JWT validation inside properties-ms or bookings-ms; only users-ms does JWT validation.
 
 Public routes (no auth): `GET /auth/*`, `POST /users`, `OPTIONS *`.
 
@@ -62,18 +62,18 @@ tests/
 #### users-ms key models
 - `User`: `id` (UUID PK), `username`, `full_name`, `email`, `hashed_password`, `is_active`, `scopes` (JSON list)
 
-#### venues-ms key models
-- `Venue`: id, name, description, sport_types (JSON), status (enum), owner_id (UUID FK to users-ms), address, city, lat/lng, price_per_hour, currency, capacity, indoor/parking/amenities flags, working_hours (JSON dict by weekday), rating, images ↔ VenueImage, unavailabilities ↔ VenueUnavailability
-- `VenueImage`: id, venue FK, url, is_thumbnail, order
-- `VenueUnavailability`: id, venue FK, start_datetime, end_datetime, reason
+#### properties-ms key models
+- `Property`: id, name, description, sport_types (JSON), status (enum), owner_id (UUID FK to users-ms), address, city, lat/lng, price_per_hour, currency, capacity, indoor/parking/amenities flags, working_hours (JSON dict by weekday), rating, images ↔ PropertyImage, unavailabilities ↔ PropertyUnavailability
+- `PropertyImage`: id, property FK, url, is_thumbnail, order
+- `PropertyUnavailability`: id, property FK, start_datetime, end_datetime, reason
 
 #### bookings-ms key models
-- `Booking`: id, venue_id (UUID), venue_owner_id (UUID, denormalized), user_id (UUID), start_datetime, end_datetime, status, price_per_hour, total_price, currency, notes, updated_at
+- `Booking`: id, property_id (UUID), property_owner_id (UUID, denormalized), user_id (UUID), start_datetime, end_datetime, status, price_per_hour, total_price, currency, notes, updated_at
 - `BookingStatus`: `PENDING` → `CONFIRMED` / `CANCELLED`; `CONFIRMED` → `COMPLETED` / `CANCELLED` / `NO_SHOW`; terminal states are `COMPLETED`, `CANCELLED`, `NO_SHOW`
 
 ### Frontend services
 
-| | ploshtadka-frontend | ploshtadka-admin-panel |
+| | brighter-frontend | brighter-admin-panel |
 |---|---|---|
 | Router | TanStack Router/Start | React Router DOM v7 |
 | Data fetching | TanStack Query | TanStack Query |
@@ -99,9 +99,9 @@ tests/
 
 All services communicate on the `backend` Docker network. No service is directly reachable from outside — only Traefik is exposed. Use service names (e.g. `http://users-ms:8000`) for inter-service calls.
 
-### Docker Compose (`ploshtadka-compose/`)
+### Docker Compose (`brighter-compose/`)
 
-`ploshtadka-compose/` contains the compose files that wire all services together. The service subdirectories inside it (`ploshtadka-admin-panel/`, `ploshtadka-users-ms/`, `ploshtadka-venues-ms/`) are the build contexts referenced by `build:` in compose — they mirror the repos in the monorepo root.
+`brighter-compose/` contains the compose files that wire all services together. The service subdirectories inside it (`brighter-admin-panel/`, `brighter-users-ms/`, `brighter-properties-ms/`) are the build contexts referenced by `build:` in compose — they mirror the repos in the monorepo root.
 
 | File | Purpose |
 |---|---|
@@ -116,7 +116,7 @@ docker compose -f docker-compose.yml up
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-### Kubernetes (`ploshtadka-k8s/`)
+### Kubernetes (`brighter-k8s/`)
 
 Helm umbrella chart. Redis is a chart dependency; Traefik + CloudNativePG are installed separately via `scripts/prerequisites.sh` (they install CRDs that must exist before `helm install`).
 
@@ -132,18 +132,18 @@ Helm umbrella chart. Redis is a chart dependency; Traefik + CloudNativePG are in
 ```bash
 # Local (Minikube)
 helm dependency update
-helm install ploshtadka . -f values.yaml -f values.local.yaml
+helm install brighter . -f values.yaml -f values.local.yaml
 
 # Upgrade (prod — only changed services)
-helm upgrade ploshtadka . -f values.yaml -f values.prod.yaml \
+helm upgrade brighter . -f values.yaml -f values.prod.yaml \
   --set "users-ms.image.tag=<sha>"
 
-helm rollback ploshtadka   # instant rollback
+helm rollback brighter   # instant rollback
 ```
 
-**Key secrets:** `ploshtadka-db-app` (created by CloudNativePG — URI must use `asyncpg://` scheme, not `postgresql://`), `users-ms-secrets` (SECRET_KEY, GOOGLE_CLIENT_ID), `payments-ms-secrets` (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET).
+**Key secrets:** `brighter-db-app` (created by CloudNativePG — URI must use `asyncpg://` scheme, not `postgresql://`), `users-ms-secrets` (SECRET_KEY, GOOGLE_CLIENT_ID), `payments-ms-secrets` (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET).
 
-See `ploshtadka-k8s/README.md` for full prod setup (k3s, DNS, CI image push).
+See `brighter-k8s/README.md` for full prod setup (k3s, DNS, CI image push).
 
 ---
 
@@ -169,10 +169,10 @@ Before making changes:
 ## Caching infrastructure
 - Redis (`redis:7-alpine`) is on the `backend` Docker network, `REDIS_URL: redis://redis:6379/0`
 - users-ms: caches `/auth/verify` in Redis keyed by SHA-256 of the JWT (`app/cache.py`), 5-min TTL; invalidated on user update/scope change
-- bookings-ms: caches `/bookings/slots` keyed by `slots:{venue_id}` (`app/cache.py`), 60s TTL; invalidated on booking create/status update
-- venues-ms: `Cache-Control: public` headers on `GET /venues/` (max-age=30) and `GET /venues/{id}` (max-age=60)
+- bookings-ms: caches `/bookings/slots` keyed by `slots:{property_id}` (`app/cache.py`), 60s TTL; invalidated on booking create/status update
+- properties-ms: `Cache-Control: public` headers on `GET /properties/` (max-age=30) and `GET /properties/{id}` (max-age=60)
 
 ## Logging
 - All backend services use loguru via `app/logging.py` + `setup_logging()` called in `main.py`
 - `LOG_LEVEL` env var controls verbosity (default `INFO`; set `DEBUG` to see cache hit/miss logs)
-- Compose: users-ms and bookings-ms default to `DEBUG`; venues-ms defaults to `INFO`
+- Compose: users-ms and bookings-ms default to `DEBUG`; properties-ms defaults to `INFO`

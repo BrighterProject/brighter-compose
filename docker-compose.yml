@@ -17,7 +17,7 @@ services:
 
   frontend:
     build:
-      context: ./ploshtadka-frontend
+      context: ./brighter-frontend
       args:
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
         VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY}
@@ -31,7 +31,7 @@ services:
       - "traefik.http.services.frontend-svc.loadbalancer.server.port=3000"
 
   admin-panel:
-    build: ./ploshtadka-admin-panel
+    build: ./brighter-admin-panel
     networks:
       - backend
     environment:
@@ -45,9 +45,9 @@ services:
       - "traefik.http.services.admin-svc.loadbalancer.server.port=3000"
 
   users-ms:
-    build: ./ploshtadka-users-ms
+    build: ./brighter-users-ms
     environment:
-      DB_URL: ${DB_URL:-postgres://ploshtadka:ploshtadka@db:5432/ploshtadka}
+      DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-120}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -86,10 +86,10 @@ services:
       # service def
       - "traefik.http.services.users-ms-svc.loadbalancer.server.port=8000"
 
-  venues-ms:
-    build: ./ploshtadka-venues-ms
+  properties-ms:
+    build: ./brighter-properties-ms
     environment:
-      DB_URL: ${DB_URL:-postgres://ploshtadka:ploshtadka@db:5432/ploshtadka}
+      DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FORWARDED_ALLOW_IPS: "*"
@@ -99,27 +99,27 @@ services:
       - db
     labels:
       - "traefik.enable=true"
-      # no auth: read-only venue browsing + OPTIONS preflight
-      - "traefik.http.routers.venues-public.rule=(Method(`GET`) || Method(`OPTIONS`)) && PathPrefix(`/api/venues`)"
-      - "traefik.http.routers.venues-public.entrypoints=web"
-      - "traefik.http.routers.venues-public.middlewares=api-strip"
-      - "traefik.http.routers.venues-public.service=venues-svc"
-      - "traefik.http.routers.venues-public.priority=10"
-      # protected: POST / PATCH / DELETE on /venues
-      - "traefik.http.routers.venues.rule=PathPrefix(`/api/venues`)"
-      - "traefik.http.routers.venues.entrypoints=web"
-      - "traefik.http.routers.venues.middlewares=jwt-auth,api-strip"
-      - "traefik.http.routers.venues.service=venues-svc"
-      - "traefik.http.routers.venues.priority=5"
+      # no auth: read-only property browsing + OPTIONS preflight
+      - "traefik.http.routers.properties-public.rule=(Method(`GET`) || Method(`OPTIONS`)) && PathPrefix(`/api/properties`)"
+      - "traefik.http.routers.properties-public.entrypoints=web"
+      - "traefik.http.routers.properties-public.middlewares=api-strip"
+      - "traefik.http.routers.properties-public.service=properties-svc"
+      - "traefik.http.routers.properties-public.priority=10"
+      # protected: POST / PATCH / DELETE on /properties
+      - "traefik.http.routers.properties.rule=PathPrefix(`/api/properties`)"
+      - "traefik.http.routers.properties.entrypoints=web"
+      - "traefik.http.routers.properties.middlewares=jwt-auth,api-strip"
+      - "traefik.http.routers.properties.service=properties-svc"
+      - "traefik.http.routers.properties.priority=5"
       # service
-      - "traefik.http.services.venues-svc.loadbalancer.server.port=8001"
+      - "traefik.http.services.properties-svc.loadbalancer.server.port=8001"
 
   bookings-ms:
-    build: ./ploshtadka-bookings-ms
+    build: ./brighter-bookings-ms
     environment:
-      DB_URL: ${DB_URL:-postgres://ploshtadka:ploshtadka@db:5432/ploshtadka}
+      DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
-      VENUES_MS_URL: ${VENUES_MS_URL:-http://venues-ms:8001}
+      PROPERTIES_MS_URL: ${PROPERTIES_MS_URL:-http://properties-ms:8001}
       PAYMENTS_MS_URL: ${PAYMENTS_MS_URL:-http://payments-ms:8003}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
@@ -146,10 +146,10 @@ services:
       - "traefik.http.services.bookings-svc.loadbalancer.server.port=8002"
 
   payments-ms:
-    build: ./ploshtadka-payments-ms
+    build: ./brighter-payments-ms
     env_file: .env
     environment:
-      DB_URL: ${DB_URL:-postgres://ploshtadka:ploshtadka@db:5432/ploshtadka}
+      DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       BOOKINGS_MS_URL: ${BOOKINGS_MS_URL:-http://bookings-ms:8002}
       FORWARDED_ALLOW_IPS: "*"
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost/bookings?payment=success}
@@ -183,9 +183,9 @@ services:
       - "traefik.http.services.payments-svc.loadbalancer.server.port=8003"
 
   notifications-ms:
-    build: ./ploshtadka-notifications-ms
+    build: ./brighter-notifications-ms
     environment:
-      DB_URL: ${DB_URL:-postgres://ploshtadka:ploshtadka@db:5432/ploshtadka}
+      DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       RESEND_API_KEY: ${RESEND_API_KEY}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Ploshtadka.BG <noreply@площадка.бг>}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
@@ -219,9 +219,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ploshtadka
-      POSTGRES_USER: ploshtadka
-      POSTGRES_PASSWORD: ploshtadka
+      POSTGRES_DB: brighter
+      POSTGRES_USER: brighter
+      POSTGRES_PASSWORD: brighter
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
