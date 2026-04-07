@@ -1,6 +1,10 @@
+## Critical Constraint
+
+**Never edit files inside subdirectories of `brighter-compose/`** — they are Docker build context mirrors of the top-level service repos. Always edit source in `BrighterProject/<service>/` directly (e.g. `brighter-frontend/`, not `brighter-compose/brighter-frontend/`).
+
 ## Project Overview
 
-**BrighterProject** — a sports property booking platform (Bulgaria). Monorepo of independent git repos managed via Docker Compose.
+**BrighterProject** — a property rental platform (Bulgaria). Monorepo of independent git repos managed via Docker Compose.
 
 ## Architecture
 
@@ -63,12 +67,12 @@ tests/
 - `User`: `id` (UUID PK), `username`, `full_name`, `email`, `hashed_password`, `is_active`, `scopes` (JSON list)
 
 #### properties-ms key models
-- `Property`: id, name, description, sport_types (JSON), status (enum), owner_id (UUID FK to users-ms), address, city, lat/lng, price_per_hour, currency, capacity, indoor/parking/amenities flags, working_hours (JSON dict by weekday), rating, images ↔ PropertyImage, unavailabilities ↔ PropertyUnavailability
+- `Property`: id, property_type (enum), status (enum), owner_id (UUID), city, lat/lng, price_per_night, currency, bedrooms, bathrooms, max_guests, amenities (JSON), has_parking, check_in_time, check_out_time, cancellation_policy (enum), rating, images ↔ PropertyImage, unavailabilities ↔ PropertyUnavailability, translations ↔ PropertyTranslation
 - `PropertyImage`: id, property FK, url, is_thumbnail, order
 - `PropertyUnavailability`: id, property FK, start_datetime, end_datetime, reason
 
 #### bookings-ms key models
-- `Booking`: id, property_id (UUID), property_owner_id (UUID, denormalized), user_id (UUID), start_datetime, end_datetime, status, price_per_hour, total_price, currency, notes, updated_at
+- `Booking`: id, property_id (UUID), property_owner_id (UUID, denormalized), user_id (UUID), start_datetime, end_datetime, status, price_per_night, total_price, currency, notes, updated_at
 - `BookingStatus`: `PENDING` → `CONFIRMED` / `CANCELLED`; `CONFIRMED` → `COMPLETED` / `CANCELLED` / `NO_SHOW`; terminal states are `COMPLETED`, `CANCELLED`, `NO_SHOW`
 
 ### Frontend services
@@ -141,7 +145,7 @@ helm upgrade brighter . -f values.yaml -f values.prod.yaml \
 helm rollback brighter   # instant rollback
 ```
 
-**Key secrets:** `brighter-db-app` (created by CloudNativePG — URI must use `asyncpg://` scheme, not `postgresql://`), `users-ms-secrets` (SECRET_KEY, GOOGLE_CLIENT_ID), `payments-ms-secrets` (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET).
+**Key secrets:** `brighter-db-app` (created by CloudNativePG — URI must use `asyncpg://` scheme, not `postgresql://`), `users-ms-secrets` (SECRET_KEY, GOOGLE_CLIENT_ID), `payments-ms-secrets` (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET), `notifications-ms-secrets` (RESEND_API_KEY).
 
 See `brighter-k8s/README.md` for full prod setup (k3s, DNS, CI image push).
 

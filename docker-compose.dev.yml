@@ -1,13 +1,13 @@
 services:
   frontend:
     build:
-      context: ./brighter-frontend
+      context: ../brighter-frontend
       target: deps
     command: sh -c "bun install && bun run dev -- --host 0.0.0.0 --port 3000"
     environment:
       VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY}
     volumes:
-      - ./brighter-frontend:/app
+      - ../brighter-frontend:/app
       - bun-cache:/root/.bun/install/cache
     networks:
       - backend
@@ -20,11 +20,11 @@ services:
 
   admin-panel:
     build:
-      context: ./brighter-admin-panel
+      context: ../brighter-admin-panel
       target: deps
     command: sh -c "bun install && bun run dev -- --host 0.0.0.0 --port 5173"
     volumes:
-      - ./brighter-admin-panel:/app
+      - ../brighter-admin-panel:/app
       - bun-cache:/root/.bun/install/cache
     environment:
       VITE_BASENAME: "/admin"
@@ -34,22 +34,16 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
       - "traefik.http.routers.admin.entrypoints=web"
-      - "traefik.http.middlewares.admin-strip.stripprefix.prefixes=/admin"
-      - "traefik.http.routers.admin.middlewares=admin-strip"
+      - "traefik.http.routers.admin.priority=10" # Higher priority than root
       - "traefik.http.services.admin-svc.loadbalancer.server.port=5173"
-
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: brighter
-      POSTGRES_USER: brighter
-      POSTGRES_PASSWORD: brighter
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    networks:
-      - backend
+      
+      # 1. Define Middleware: If user hits /admin, redirect to /admin/
+      - "traefik.http.middlewares.admin-slash.redirectregex.regex=^(.*)/admin$$"
+      - "traefik.http.middlewares.admin-slash.redirectregex.replacement=$${1}/admin/"
+      - "traefik.http.middlewares.admin-slash.redirectregex.permanent=true"
+      
+      # 2. Apply Middleware to the router
+      - "traefik.http.routers.admin.middlewares=admin-slash"
 
   pgadmin:
     image: dpage/pgadmin4
@@ -63,6 +57,13 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PG_ADMIN_LOGIN:-admin@gmail.com}
       PGADMIN_DEFAULT_PASSWORD: ${PG_ADMIN_PASSWORD:-admin}
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
 
 
 volumes:

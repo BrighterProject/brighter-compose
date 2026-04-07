@@ -39,6 +39,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
+      - "traefik.http.routers.admin.priority=5"
       - "traefik.http.routers.admin.entrypoints=web"
       - "traefik.http.middlewares.admin-strip.stripprefix.prefixes=/admin"
       - "traefik.http.routers.admin.middlewares=admin-strip"
@@ -131,8 +132,8 @@ services:
       - redis
     labels:
       - "traefik.enable=true"
-      # no auth: OPTIONS preflight
-      - "traefik.http.routers.bookings-public.rule=Method(`OPTIONS`) && PathPrefix(`/api/bookings`)"
+      # no auth: OPTIONS preflight + GET /bookings/slots (public calendar endpoint)
+      - "traefik.http.routers.bookings-public.rule=(Method(`OPTIONS`) && PathPrefix(`/api/bookings`)) || (Method(`GET`) && Path(`/api/bookings/slots`))"
       - "traefik.http.routers.bookings-public.entrypoints=web"
       - "traefik.http.routers.bookings-public.middlewares=api-strip"
       - "traefik.http.routers.bookings-public.service=bookings-svc"
@@ -224,6 +225,8 @@ services:
       POSTGRES_PASSWORD: brighter
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     networks:
       - backend
 
