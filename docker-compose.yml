@@ -92,6 +92,8 @@ services:
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
+      BOOKINGS_MS_URL: ${BOOKINGS_MS_URL:-http://bookings-ms:8002}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FORWARDED_ALLOW_IPS: "*"
     networks:
