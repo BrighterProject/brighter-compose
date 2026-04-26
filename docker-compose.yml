@@ -93,6 +93,7 @@ services:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
       BOOKINGS_MS_URL: ${BOOKINGS_MS_URL:-http://bookings-ms:8002}
+      NOTIFICATIONS_MS_URL: ${NOTIFICATIONS_MS_URL:-http://notifications-ms:8004}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FORWARDED_ALLOW_IPS: "*"
@@ -100,6 +101,7 @@ services:
       - backend
     depends_on:
       - db
+      - notifications-ms
     labels:
       - "traefik.enable=true"
       # no auth: read-only property browsing + OPTIONS preflight
@@ -124,6 +126,7 @@ services:
       USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
       PROPERTIES_MS_URL: ${PROPERTIES_MS_URL:-http://properties-ms:8001}
       PAYMENTS_MS_URL: ${PAYMENTS_MS_URL:-http://payments-ms:8003}
+      NOTIFICATIONS_MS_URL: ${NOTIFICATIONS_MS_URL:-http://notifications-ms:8004}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
       FORWARDED_ALLOW_IPS: "*"
@@ -132,6 +135,7 @@ services:
     depends_on:
       - db
       - redis
+      - notifications-ms
     labels:
       - "traefik.enable=true"
       # no auth: OPTIONS preflight + GET /bookings/slots (public calendar endpoint)
@@ -154,6 +158,7 @@ services:
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       BOOKINGS_MS_URL: ${BOOKINGS_MS_URL:-http://bookings-ms:8002}
+      NOTIFICATIONS_MS_URL: ${NOTIFICATIONS_MS_URL:-http://notifications-ms:8004}
       FORWARDED_ALLOW_IPS: "*"
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost/bookings?payment=success}
       STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-http://localhost/bookings?payment=cancelled}
@@ -162,11 +167,12 @@ services:
       - backend
     depends_on:
       - db
+      - notifications-ms
     labels:
       - "traefik.enable=true"
       # PUBLIC: Stripe webhook — must not require JWT (Stripe cannot provide one)
       # Priority 20 ensures this matches before the protected catch-all below
-      - "traefik.http.routers.payments-webhook.rule=Method(`POST`) && Path(`/api/payments/webhook`)"
+      - "traefik.http.routers.payments-webhook.rule=Method(`POST`) && (Path(`/api/payments/webhook`) || Path(`/api/payments/connect/webhook`))"
       - "traefik.http.routers.payments-webhook.entrypoints=web"
       - "traefik.http.routers.payments-webhook.middlewares=api-strip"
       - "traefik.http.routers.payments-webhook.service=payments-svc"

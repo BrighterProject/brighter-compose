@@ -69,3 +69,6 @@ services:
 volumes:
   bun-cache:
   pgadmin-data:
+
+networks:
+  backend:
