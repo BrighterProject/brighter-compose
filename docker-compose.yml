@@ -158,6 +158,7 @@ services:
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       BOOKINGS_MS_URL: ${BOOKINGS_MS_URL:-http://bookings-ms:8002}
+      PROPERTIES_MS_URL: ${PROPERTIES_MS_URL:-http://properties-ms:8001}
       NOTIFICATIONS_MS_URL: ${NOTIFICATIONS_MS_URL:-http://notifications-ms:8004}
       FORWARDED_ALLOW_IPS: "*"
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost/bookings?payment=success}
