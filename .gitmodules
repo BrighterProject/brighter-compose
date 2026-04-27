@@ -1,21 +1,28 @@
 [submodule "brighter-users-ms"]
 	path = brighter-users-ms
 	url = git@github.com:BrighterProject/brighter-users-ms.git
+	branch = dev
 [submodule "brighter-properties-ms"]
 	path = brighter-properties-ms
 	url = git@github.com:BrighterProject/brighter-properties-ms.git
+	branch = dev
 [submodule "brighter-admin-panel"]
 	path = brighter-admin-panel
 	url = git@github.com:BrighterProject/brighter-admin-panel.git
+	branch = dev
 [submodule "brighter-bookings-ms"]
 	path = brighter-bookings-ms
 	url = git@github.com:BrighterProject/brighter-bookings-ms.git
+	branch = dev
 [submodule "brighter-payments-ms"]
 	path = brighter-payments-ms
 	url = git@github.com:BrighterProject/brighter-payments-ms.git
+	branch = dev
 [submodule "brighter-frontend"]
 	path = brighter-frontend
 	url = git@github.com:BrighterProject/brighter-frontend.git
+	branch = dev
 [submodule "brighter-notifications-ms"]
 	path = brighter-notifications-ms
 	url = git@github.com:BrighterProject/brighter-notifications-ms.git
+	branch = dev
