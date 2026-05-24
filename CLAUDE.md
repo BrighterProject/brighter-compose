@@ -40,7 +40,7 @@ Public routes (no auth): `GET /auth/*`, `POST /users`, `OPTIONS *`.
 All four backend services follow the same layout (with the exception that `users-ms` does JWT validation itself and has no `conftest.py`/factories):
 
 - **Framework**: FastAPI + Uvicorn (port declared in Dockerfile)
-- **ORM**: Tortoise ORM with asyncpg; migrations via **Aerich** 
+- **ORM**: Tortoise ORM with asyncpg; migrations via **Aerich**
 - **Package manager**: `uv` — always use `uv add` / `uv run`, never bare `pip`
 - **Shared library**: `ms-core` (HexChap/MSCore on GitHub) provides:
   - `AbstractModel` — base Tortoise model
@@ -180,3 +180,15 @@ Before making changes:
 - All backend services use loguru via `app/logging.py` + `setup_logging()` called in `main.py`
 - `LOG_LEVEL` env var controls verbosity (default `INFO`; set `DEBUG` to see cache hit/miss logs)
 - Compose: users-ms and bookings-ms default to `DEBUG`; properties-ms defaults to `INFO`
+
+## Observability
+
+Three modes:
+
+| Mode | Command | What runs |
+|------|---------|-----------|
+| Full (default dev) | `COMPOSE_PROFILES=observability docker compose up -d` | All services + OTEL Collector, Prometheus, Tempo, Loki, Promtail, Grafana |
+| Disabled (light dev / CI) | `docker compose --env-file .env.no-obs up -d` | Services only; SDK disabled via `OTEL_SDK_DISABLED=true` |
+| Services-only (silent) | `docker compose up -d` | Services only; SDK initialises but BatchSpanProcessor silently drops spans (no crash) |
+
+Grafana: http://localhost:3000 (anonymous admin, no login required in dev).
