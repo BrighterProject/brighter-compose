@@ -9,7 +9,7 @@ services:
       - "--api.insecure=true"
     ports:
       - "80:80"
-      - "8080:8080"  # dashboard
+      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -17,10 +17,15 @@ services:
 
   frontend:
     build:
-      context: ./brighter-frontend
-      args:
-        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY}
+      context: ../brighter-frontend
+      target: deps
+    command: sh -c "bun install && bun run dev -- --host 0.0.0.0 --port 3000"
+    environment:
+      VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY}
+    volumes:
+      - ../brighter-frontend:/app
+      - bun-cache:/root/.bun/install/cache
     networks:
       - backend
     labels:
@@ -30,23 +35,32 @@ services:
       - "traefik.http.routers.frontend.priority=1"
       - "traefik.http.services.frontend-svc.loadbalancer.server.port=3000"
 
-  # admin-panel:
-  #   build: ./brighter-admin-panel
-  #   networks:
-  #     - backend
-  #   environment:
-  #     VITE_BASENAME: "/admin"
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
-  #     - "traefik.http.routers.admin.priority=5"
-  #     - "traefik.http.routers.admin.entrypoints=web"
-  #     - "traefik.http.middlewares.admin-strip.stripprefix.prefixes=/admin"
-  #     - "traefik.http.routers.admin.middlewares=admin-strip"
-  #     - "traefik.http.services.admin-svc.loadbalancer.server.port=3000"
+  admin-panel:
+    build:
+      context: ../brighter-admin-panel
+      target: deps
+    command: sh -c "bun install && bun run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      VITE_BASENAME: "/admin"
+    volumes:
+      - ../brighter-admin-panel:/app
+      - bun-cache:/root/.bun/install/cache
+    networks:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
+      - "traefik.http.routers.admin.entrypoints=web"
+      - "traefik.http.routers.admin.priority=10"
+      - "traefik.http.services.admin-svc.loadbalancer.server.port=5173"
+      - "traefik.http.middlewares.admin-slash.redirectregex.regex=^(.*)/admin$$"
+      - "traefik.http.middlewares.admin-slash.redirectregex.replacement=$${1}/admin/"
+      - "traefik.http.middlewares.admin-slash.redirectregex.permanent=true"
+      - "traefik.http.routers.admin.middlewares=admin-slash"
 
   users-ms:
-    build: ./brighter-users-ms
+    build: ../brighter-users-ms
+    command: --reload
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
@@ -61,6 +75,11 @@ services:
       NOTIFICATIONS_MS_URL: ${NOTIFICATIONS_MS_URL:-http://notifications-ms:8004}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
       FORWARDED_ALLOW_IPS: "*"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_COLORIZE: "true"
+    volumes:
+      - ../brighter-users-ms:/app
+      - users-venv:/app/.venv
     networks:
       - backend
     depends_on:
@@ -71,7 +90,7 @@ services:
       - "traefik.enable=true"
       # strip /api prefix before forwarding
       - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
-      # forwardAuth middleware (internal URL — no /api prefix)
+      # forwardAuth middleware
       - "traefik.http.middlewares.jwt-auth.forwardauth.address=http://users-ms:8000/auth/verify"
       - "traefik.http.middlewares.jwt-auth.forwardauth.authResponseHeaders=X-User-Id,X-User-Scopes,X-Username"
       # no auth
@@ -84,43 +103,50 @@ services:
       - "traefik.http.routers.users-protected.entrypoints=web"
       - "traefik.http.routers.users-protected.middlewares=jwt-auth,api-strip"
       - "traefik.http.routers.users-protected.service=users-ms-svc"
-      # service def
       - "traefik.http.services.users-ms-svc.loadbalancer.server.port=8000"
 
   properties-ms:
-    build: ./brighter-properties-ms
+    build: ../brighter-properties-ms
+    command: --reload
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
       BOOKINGS_MS_URL: ${BOOKINGS_MS_URL:-http://bookings-ms:8002}
       NOTIFICATIONS_MS_URL: ${NOTIFICATIONS_MS_URL:-http://notifications-ms:8004}
+      PAYMENTS_MS_URL: ${PAYMENTS_MS_URL:-http://payments-ms:8003}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FORWARDED_ALLOW_IPS: "*"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_COLORIZE: "true"
+    volumes:
+      - ../brighter-properties-ms:/app
+      - properties-venv:/app/.venv
     networks:
       - backend
     depends_on:
       - db
       - notifications-ms
+      - payments-ms
     labels:
       - "traefik.enable=true"
-      # no auth: read-only property browsing + OPTIONS preflight
+      # no auth: read-only browsing + OPTIONS preflight
       - "traefik.http.routers.properties-public.rule=(Method(`GET`) || Method(`OPTIONS`)) && (PathPrefix(`/api/properties`) || PathPrefix(`/api/regions`))"
       - "traefik.http.routers.properties-public.entrypoints=web"
       - "traefik.http.routers.properties-public.middlewares=api-strip"
       - "traefik.http.routers.properties-public.service=properties-svc"
       - "traefik.http.routers.properties-public.priority=10"
-      # protected: POST / PATCH / DELETE on /properties
+      # protected
       - "traefik.http.routers.properties.rule=PathPrefix(`/api/properties`)"
       - "traefik.http.routers.properties.entrypoints=web"
       - "traefik.http.routers.properties.middlewares=jwt-auth,api-strip"
       - "traefik.http.routers.properties.service=properties-svc"
       - "traefik.http.routers.properties.priority=5"
-      # service
       - "traefik.http.services.properties-svc.loadbalancer.server.port=8001"
 
   bookings-ms:
-    build: ./brighter-bookings-ms
+    build: ../brighter-bookings-ms
+    command: --reload
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
@@ -130,6 +156,11 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
       FORWARDED_ALLOW_IPS: "*"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_COLORIZE: "true"
+    volumes:
+      - ../brighter-bookings-ms:/app
+      - bookings-venv:/app/.venv
     networks:
       - backend
     depends_on:
@@ -138,7 +169,7 @@ services:
       - notifications-ms
     labels:
       - "traefik.enable=true"
-      # no auth: OPTIONS preflight + GET /bookings/slots (public calendar endpoint)
+      # no auth: OPTIONS preflight + GET /bookings/slots (public calendar)
       - "traefik.http.routers.bookings-public.rule=(Method(`OPTIONS`) && PathPrefix(`/api/bookings`)) || (Method(`GET`) && Path(`/api/bookings/slots`))"
       - "traefik.http.routers.bookings-public.entrypoints=web"
       - "traefik.http.routers.bookings-public.middlewares=api-strip"
@@ -153,7 +184,8 @@ services:
       - "traefik.http.services.bookings-svc.loadbalancer.server.port=8002"
 
   payments-ms:
-    build: ./brighter-payments-ms
+    build: ../brighter-payments-ms
+    command: --reload
     env_file: .env
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
@@ -161,9 +193,14 @@ services:
       PROPERTIES_MS_URL: ${PROPERTIES_MS_URL:-http://properties-ms:8001}
       NOTIFICATIONS_MS_URL: ${NOTIFICATIONS_MS_URL:-http://notifications-ms:8004}
       FORWARDED_ALLOW_IPS: "*"
-      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost/bookings?payment=success}
-      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-http://localhost/bookings?payment=cancelled}
+      STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost/{locale}/bookings/success}
+      STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-http://localhost/{locale}/bookings/cancel}
       STRIPE_CHECKOUT_EXPIRES_MINUTES: ${STRIPE_CHECKOUT_EXPIRES_MINUTES:-30}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_COLORIZE: "true"
+    volumes:
+      - ../brighter-payments-ms:/app
+      - payments-venv:/app/.venv
     networks:
       - backend
     depends_on:
@@ -171,8 +208,7 @@ services:
       - notifications-ms
     labels:
       - "traefik.enable=true"
-      # PUBLIC: Stripe webhook — must not require JWT (Stripe cannot provide one)
-      # Priority 20 ensures this matches before the protected catch-all below
+      # PUBLIC: Stripe webhook — priority 20 beats protected catch-all
       - "traefik.http.routers.payments-webhook.rule=Method(`POST`) && (Path(`/api/payments/webhook`) || Path(`/api/payments/connect/webhook`))"
       - "traefik.http.routers.payments-webhook.entrypoints=web"
       - "traefik.http.routers.payments-webhook.middlewares=api-strip"
@@ -184,7 +220,7 @@ services:
       - "traefik.http.routers.payments-public.middlewares=api-strip"
       - "traefik.http.routers.payments-public.service=payments-svc"
       - "traefik.http.routers.payments-public.priority=10"
-      # Protected: all other /payments routes require JWT
+      # protected
       - "traefik.http.routers.payments.rule=PathPrefix(`/api/payments`) || PathPrefix(`/api/subscriptions`)"
       - "traefik.http.routers.payments.entrypoints=web"
       - "traefik.http.routers.payments.middlewares=jwt-auth,api-strip"
@@ -193,7 +229,8 @@ services:
       - "traefik.http.services.payments-svc.loadbalancer.server.port=8003"
 
   notifications-ms:
-    build: ./brighter-notifications-ms
+    build: ../brighter-notifications-ms
+    command: --reload
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       RESEND_API_KEY: ${RESEND_API_KEY}
@@ -201,6 +238,11 @@ services:
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FORWARDED_ALLOW_IPS: "*"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_COLORIZE: "true"
+    volumes:
+      - ../brighter-notifications-ms:/app
+      - notifications-venv:/app/.venv
     networks:
       - backend
     depends_on:
@@ -221,13 +263,104 @@ services:
       - "traefik.http.routers.notifications.priority=5"
       - "traefik.http.services.notifications-svc.loadbalancer.server.port=8004"
 
+  # ── Observability stack ────────────────────────────────────────────────────
+  # Start with:  docker compose --profile observability up -d
+  # Stop with:   docker compose --profile observability down
+
+  otel-collector:
+    profiles: [observability]
+    image: otel/opentelemetry-collector-contrib:0.100.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "8888:8888"
+    networks:
+      - backend
+    restart: unless-stopped
+
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v2.51.2
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - backend
+    restart: unless-stopped
+
+  tempo:
+    profiles: [observability]
+    image: grafana/tempo:2.4.2
+    command: ["-config.file=/etc/tempo-config.yaml"]
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo-config.yaml
+      - tempo_data:/tmp/tempo
+    ports:
+      - "3200:3200"
+    networks:
+      - backend
+    restart: unless-stopped
+
+  loki:
+    profiles: [observability]
+    image: grafana/loki:2.9.8
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./loki-config.yaml:/etc/loki/loki-config.yaml
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - backend
+    restart: unless-stopped
+
+  promtail:
+    profiles: [observability]
+    image: grafana/promtail:2.9.8
+    command: ["-config.file=/etc/promtail/promtail-config.yaml"]
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/promtail-config.yaml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - backend
+    depends_on: [loki]
+    restart: unless-stopped
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:10.4.3
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    networks:
+      - backend
+    depends_on: [prometheus, tempo, loki]
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
     networks:
       - backend
 
   db:
-    image: postgres:16-alpine
+    build: ../brighter-postgres
     environment:
       POSTGRES_DB: brighter
       POSTGRES_USER: brighter
@@ -239,8 +372,32 @@ services:
     networks:
       - backend
 
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - backend
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PG_ADMIN_LOGIN:-admin@gmail.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PG_ADMIN_PASSWORD:-admin}
+
 volumes:
   pgdata:
+  pgadmin-data:
+  bun-cache:
+  users-venv:
+  properties-venv:
+  bookings-venv:
+  payments-venv:
+  notifications-venv:
+  prometheus_data:
+  tempo_data:
+  loki_data:
+  grafana_data:
 
 networks:
   backend:
