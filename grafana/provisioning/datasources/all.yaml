@@ -39,4 +39,5 @@ datasources:
         - name: TraceID
           matcherRegex: '\| ([0-9a-f]{32}) \|'
           url: "${__value.raw}"
+          internalLink: true
           datasourceUid: tempo
