@@ -347,6 +347,9 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      GRAFANA_EXTERNAL_URL: ${GRAFANA_EXTERNAL_URL:-http://localhost:3000}
     networks:
       - backend
     depends_on: [prometheus, tempo, loki]

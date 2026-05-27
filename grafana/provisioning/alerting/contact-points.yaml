@@ -1,0 +1,28 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: Telegram
+    receivers:
+      - uid: telegram-receiver
+        type: telegram
+        settings:
+          bottoken: '${TELEGRAM_BOT_TOKEN}'
+          chatid: "${TELEGRAM_CHAT_ID} "
+          parse_mode: Markdown
+          message: |
+            {{ if .Alerts.Firing -}}
+            🚨 *{{ .CommonLabels.alertname }}*
+            {{ range .Alerts.Firing -}}
+            📦 Service: `{{ index .Labels "service" }}`
+            🔗 Endpoint: `{{ index .Labels "method" }} {{ index .Labels "path" }}`
+            {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+            {{ if .Annotations.logs_url }}🔍 [View Logs in Grafana]({{ .Annotations.logs_url }}){{ end }}
+            {{ end -}}
+            {{- end }}
+            {{ if .Alerts.Resolved -}}
+            {{ range .Alerts.Resolved -}}
+            ✅ Resolved: `{{ index .Labels "service" }}` — `{{ index .Labels "method" }} {{ index .Labels "path" }}`
+            {{ end -}}
+            {{- end }}
+        disableResolveMessage: false

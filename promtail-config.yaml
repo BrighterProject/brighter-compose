@@ -13,17 +13,18 @@ scrape_configs:
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project=brighter-compose"]
     relabel_configs:
       - source_labels: [__meta_docker_container_label_com_docker_compose_service]
         target_label: service
       - source_labels: [__meta_docker_container_name]
-        regex: /(.*)
+        regex: '/?(.*)'
         target_label: container
       - source_labels: [__meta_docker_container_label_com_docker_compose_service]
         regex: (users-ms|properties-ms|bookings-ms|payments-ms|notifications-ms)
         action: keep
     pipeline_stages:
-      - regex:
-          expression: '\| (?P<trace_id>[0-9a-f]{32}) \|'
-      - labels:
-          trace_id:
+      - static_labels:
+          job: brighter

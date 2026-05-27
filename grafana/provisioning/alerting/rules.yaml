@@ -1,0 +1,57 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: HTTP Errors
+    folder: Brighter
+    interval: 1m
+    rules:
+      - uid: brighter-5xx-errors
+        title: HTTP 5xx Errors
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              # Extract method, path, status from uvicorn access lines: "METHOD /path HTTP/x.x" 5xx
+              expr: 'sum by (service, method, path) (count_over_time({job="brighter"} | regexp `"(?P<method>[A-Z]+) (?P<path>[^"? ]+)[^"]*" (?P<status>5\d\d)` [5m]))'
+              instant: true
+              queryType: instant
+              refId: A
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              refId: C
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              refId: B
+              expression: C
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+        noDataState: OK
+        execErrState: OK
+        for: 1m
+        annotations:
+          summary: HTTP 5xx errors in {{ $labels.service }}
+          description: >-
+            {{ $values.C.Value | printf "%.0f" }} HTTP 5xx response(s) on
+            *{{ $labels.method }} {{ $labels.path }}*
+            in *{{ $labels.service }}* in the last 5 minutes.
+          logs_url: '${GRAFANA_EXTERNAL_URL}/explore?orgId=1&left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bjob%3D%5C%22brighter%5C%22%2Cservice%3D%5C%22{{ $labels.service }}%5C%22%7D%22%2C%22refId%22%3A%22A%22%2C%22queryType%22%3A%22range%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D'
+        labels: {}
+        isPaused: false
