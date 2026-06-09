@@ -214,19 +214,41 @@ services:
       - "traefik.http.routers.payments-webhook.middlewares=api-strip"
       - "traefik.http.routers.payments-webhook.service=payments-svc"
       - "traefik.http.routers.payments-webhook.priority=20"
-      # PUBLIC: OPTIONS preflight
-      - "traefik.http.routers.payments-public.rule=Method(`OPTIONS`) && PathPrefix(`/api/payments`)"
+      # PUBLIC: OPTIONS preflight + GET /payments/subscriptions/plans (pricing page)
+      - "traefik.http.routers.payments-public.rule=(Method(`OPTIONS`) && PathPrefix(`/api/payments`)) || (Method(`GET`) && Path(`/api/payments/subscriptions/plans`))"
       - "traefik.http.routers.payments-public.entrypoints=web"
       - "traefik.http.routers.payments-public.middlewares=api-strip"
       - "traefik.http.routers.payments-public.service=payments-svc"
       - "traefik.http.routers.payments-public.priority=10"
       # protected
-      - "traefik.http.routers.payments.rule=PathPrefix(`/api/payments`) || PathPrefix(`/api/subscriptions`)"
+      - "traefik.http.routers.payments.rule=PathPrefix(`/api/payments`)"
       - "traefik.http.routers.payments.entrypoints=web"
       - "traefik.http.routers.payments.middlewares=jwt-auth,api-strip"
       - "traefik.http.routers.payments.service=payments-svc"
       - "traefik.http.routers.payments.priority=5"
       - "traefik.http.services.payments-svc.loadbalancer.server.port=8003"
+
+  ai-ms:
+    build: ../brighter-ai-blehhing
+    command: --reload
+    environment:
+      MODEL_PATH: /models/room_classifier.pt
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_COLORIZE: "true"
+    volumes:
+      - ../brighter-ai-blehhing:/app
+      - ../brighter-ai-blehhing/models:/models
+    networks:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.ai-strip.stripprefix.prefixes=/api/ai"
+      - "traefik.http.routers.ai-ms.rule=PathPrefix(`/api/ai`)"
+      - "traefik.http.routers.ai-ms.entrypoints=web"
+      - "traefik.http.routers.ai-ms.middlewares=ai-strip"
+      - "traefik.http.routers.ai-ms.priority=5"
+      - "traefik.http.services.ai-ms-svc.loadbalancer.server.port=8005"
 
   notifications-ms:
     build: ../brighter-notifications-ms
