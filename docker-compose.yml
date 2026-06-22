@@ -73,7 +73,7 @@ services:
       retries: 10
 
   stripe-mock:
-    image: stripe/stripe-mock:v0.190.0
+    image: stripe/stripe-mock:v0.201.0
     profiles: [e2e]
     networks: [backend]
     ports:
