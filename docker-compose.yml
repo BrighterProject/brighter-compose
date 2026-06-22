@@ -16,6 +16,7 @@ services:
       - backend
 
   frontend:
+    profiles: [frontend]
     build:
       context: ../brighter-frontend
       target: deps
@@ -36,6 +37,7 @@ services:
       - "traefik.http.services.frontend-svc.loadbalancer.server.port=3000"
 
   admin-panel:
+    profiles: [frontend]
     build:
       context: ../brighter-admin-panel
       target: deps
