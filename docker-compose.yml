@@ -58,6 +58,32 @@ services:
       - "traefik.http.middlewares.admin-slash.redirectregex.permanent=true"
       - "traefik.http.routers.admin.middlewares=admin-slash"
 
+  mailpit:
+    image: axllent/mailpit:v1.20
+    profiles: [e2e]
+    networks: [backend]
+    ports:
+      - "8025:8025"   # web UI + REST API
+    environment:
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  stripe-mock:
+    image: stripe/stripe-mock:v0.190.0
+    profiles: [e2e]
+    networks: [backend]
+    ports:
+      - "12111:12111"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:12111/v1/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   users-ms:
     build: ../brighter-users-ms
     command: --reload
@@ -76,7 +102,14 @@ services:
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
       FORWARDED_ALLOW_IPS: "*"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       LOG_COLORIZE: "true"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/ready').status==200 else 1)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 20s
     volumes:
       - ../brighter-users-ms:/app
       - users-venv:/app/.venv
@@ -118,7 +151,19 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FORWARDED_ALLOW_IPS: "*"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       LOG_COLORIZE: "true"
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health/ready').status==200 else 1)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 20s
     volumes:
       - ../brighter-properties-ms:/app
       - properties-venv:/app/.venv
@@ -157,7 +202,14 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
       FORWARDED_ALLOW_IPS: "*"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       LOG_COLORIZE: "true"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health/ready').status==200 else 1)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 20s
     volumes:
       - ../brighter-bookings-ms:/app
       - bookings-venv:/app/.venv
@@ -188,6 +240,7 @@ services:
     command: --reload
     env_file: .env
     environment:
+      USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       BOOKINGS_MS_URL: ${BOOKINGS_MS_URL:-http://bookings-ms:8002}
       PROPERTIES_MS_URL: ${PROPERTIES_MS_URL:-http://properties-ms:8001}
@@ -196,8 +249,19 @@ services:
       STRIPE_SUCCESS_URL: ${STRIPE_SUCCESS_URL:-http://localhost/{locale}/bookings/success}
       STRIPE_CANCEL_URL: ${STRIPE_CANCEL_URL:-http://localhost/{locale}/bookings/cancel}
       STRIPE_CHECKOUT_EXPIRES_MINUTES: ${STRIPE_CHECKOUT_EXPIRES_MINUTES:-30}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_e2e}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_e2e}
+      STRIPE_CONNECT_WEBHOOK_SECRET: ${STRIPE_CONNECT_WEBHOOK_SECRET:-whsec_e2e_connect}
+      STRIPE_API_BASE: ${STRIPE_API_BASE:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       LOG_COLORIZE: "true"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/health/ready').status==200 else 1)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 20s
     volumes:
       - ../brighter-payments-ms:/app
       - payments-venv:/app/.venv
@@ -228,40 +292,48 @@ services:
       - "traefik.http.routers.payments.priority=5"
       - "traefik.http.services.payments-svc.loadbalancer.server.port=8003"
 
-  ai-ms:
-    build: ../brighter-ai-blehhing
-    command: --reload
-    environment:
-      MODEL_PATH: /models/room_classifier.pt
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      LOG_COLORIZE: "true"
-    volumes:
-      - ../brighter-ai-blehhing:/app
-      - ../brighter-ai-blehhing/models:/models
-    networks:
-      - backend
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.middlewares.ai-strip.stripprefix.prefixes=/api/ai"
-      - "traefik.http.routers.ai-ms.rule=PathPrefix(`/api/ai`)"
-      - "traefik.http.routers.ai-ms.entrypoints=web"
-      - "traefik.http.routers.ai-ms.middlewares=ai-strip"
-      - "traefik.http.routers.ai-ms.priority=5"
-      - "traefik.http.services.ai-ms-svc.loadbalancer.server.port=8005"
-
+  # ai-ms:
+  #   build: ../brighter-ai-blehhing
+  #   command: --reload
+  #   environment:
+  #     MODEL_PATH: /models/test_room_classifier.pt
+  #     OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  #     LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  #     LOG_COLORIZE: "true"
+  #   volumes:
+  #     - ../brighter-ai-blehhing:/app
+  #     - ../brighter-ai-blehhing/models:/models
+  #   networks:
+  #     - backend
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.middlewares.ai-strip.stripprefix.prefixes=/api/ai"
+  #     - "traefik.http.routers.ai-ms.rule=PathPrefix(`/api/ai`)"
+  #     - "traefik.http.routers.ai-ms.entrypoints=web"
+  #     - "traefik.http.routers.ai-ms.middlewares=ai-strip"
+  #     - "traefik.http.routers.ai-ms.priority=5"
+  #     - "traefik.http.services.ai-ms-svc.loadbalancer.server.port=8005"
+  #
   notifications-ms:
     build: ../brighter-notifications-ms
     command: --reload
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
-      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY:-re_test_placeholder}
+      RESEND_API_URL: ${RESEND_API_URL:-}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Ploshtadka.BG <noreply@площадка.бг>}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FORWARDED_ALLOW_IPS: "*"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       LOG_COLORIZE: "true"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8004/health/ready').status==200 else 1)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 20s
     volumes:
       - ../brighter-notifications-ms:/app
       - notifications-venv:/app/.venv
@@ -305,6 +377,7 @@ services:
   prometheus:
     profiles: [observability]
     image: prom/prometheus:v2.51.2
+    user: root
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
