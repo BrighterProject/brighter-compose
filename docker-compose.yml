@@ -238,7 +238,9 @@ services:
   payments-ms:
     build: ../brighter-payments-ms
     command: --reload
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       USERS_MS_URL: ${USERS_MS_URL:-http://users-ms:8000}
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
