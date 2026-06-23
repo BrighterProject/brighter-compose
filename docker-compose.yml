@@ -346,6 +346,9 @@ services:
     volumes:
       - ../brighter-notifications-ms:/app
       - notifications-venv:/app/.venv
+      # node_modules (mjml CLI) lives in the image; a named volume keeps it from
+      # being shadowed by the source bind mount above — same pattern as .venv.
+      - notifications-node-modules:/app/node_modules
     networks:
       - backend
     depends_on:
@@ -501,6 +504,7 @@ volumes:
   bookings-venv:
   payments-venv:
   notifications-venv:
+  notifications-node-modules:
   prometheus_data:
   tempo_data:
   loki_data:
