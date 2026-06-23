@@ -80,12 +80,16 @@ services:
     networks: [backend]
     ports:
       - "12111:12111"
+    # A 401 (auth required) already proves stripe-mock is up and routing, so we
+    # accept any HTTP response as healthy. The previous auth-header check passed
+    # locally but failed in CI, where busybox wget dropped the `--header=` arg
+    # and stripe-mock returned 401 on every probe.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "--header=Authorization: Bearer sk_test_healthcheck", "http://localhost:12111/v1/charges"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:12111/v1/charges 2>&1 | grep -qE 'Unauthorized|charges'"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 30s
+      start_period: 5s
 
   users-ms:
     build: ../brighter-users-ms
