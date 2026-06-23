@@ -81,10 +81,11 @@ services:
     ports:
       - "12111:12111"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:12111/v1/"]
+      test: ["CMD", "wget", "-qO-", "--header=Authorization: Bearer sk_test_healthcheck", "http://localhost:12111/v1/charges"]
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 30s
 
   users-ms:
     build: ../brighter-users-ms
