@@ -330,6 +330,11 @@ services:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       RESEND_API_KEY: ${RESEND_API_KEY:-re_test_placeholder}
       RESEND_API_URL: ${RESEND_API_URL:-}
+      # Email delivery transport: "resend" (prod) or "smtp" (dev/e2e → mailpit).
+      # The e2e workflow sets EMAIL_TRANSPORT=smtp so verification mail lands in mailpit.
+      EMAIL_TRANSPORT: ${EMAIL_TRANSPORT:-resend}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Ploshtadka.BG <noreply@площадка.бг>}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
