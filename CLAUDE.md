@@ -64,7 +64,7 @@ tests/
 ```
 
 #### users-ms key models
-- `User`: `id` (UUID PK), `username`, `full_name`, `email`, `hashed_password`, `is_active`, `scopes` (JSON list)
+- `User`: `id` (UUID PK), `username`, `full_name`, `email`, `hashed_password`, `google_id`, `email_verification_token`, `is_active`, `scopes` (JSON list)
 
 #### properties-ms key models
 - `Property`: id, property_type (enum), status (enum), owner_id (UUID), city, lat/lng, price_per_night, currency, bedrooms, bathrooms, max_guests, amenities (JSON), has_parking, check_in_time, check_out_time, cancellation_policy (enum), rating, images ↔ PropertyImage, unavailabilities ↔ PropertyUnavailability, translations ↔ PropertyTranslation
@@ -72,7 +72,7 @@ tests/
 - `PropertyUnavailability`: id, property FK, start_datetime, end_datetime, reason
 
 #### bookings-ms key models
-- `Booking`: id, property_id (UUID), property_owner_id (UUID, denormalized), user_id (UUID), start_datetime, end_datetime, status, price_per_night, total_price, currency, notes, updated_at
+- `Booking`: id, property_id (UUID), property_owner_id (UUID, denormalized), user_id (UUID), start_date, end_date, status, price_per_night, total_price, currency, guest_name, guest_email, guest_phone, special_requests, updated_at
 - `BookingStatus`: `PENDING` → `CONFIRMED` / `CANCELLED`; `CONFIRMED` → `COMPLETED` / `CANCELLED` / `NO_SHOW`; terminal states are `COMPLETED`, `CANCELLED`, `NO_SHOW`
 
 ### Frontend services
@@ -122,32 +122,28 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 ### Kubernetes (`brighter-k8s/`)
 
-Helm umbrella chart. Redis is a chart dependency; Traefik + CloudNativePG are installed separately via `scripts/prerequisites.sh` (they install CRDs that must exist before `helm install`).
+Two separate Helm releases (split to stay under Kubernetes' 1 MiB secret limit). Traefik + CloudNativePG are installed separately via `scripts/prerequisites.sh` (they install CRDs that must exist before `helm install`).
 
-| File | Purpose |
-|---|---|
-| `values.yaml` | Shared defaults (image repos, service ports, log levels) |
-| `values.local.yaml` | Minikube: `imagePullPolicy: Never`, domain `localhost` |
-| `values.staging.yaml` | Staging overrides |
-| `values.prod.yaml` | Prod: HA postgres, HPA enabled, TLS |
-| `sealed-secrets/` | Encrypted secrets — safe to commit |
-| `scripts/seal.sh` | Interactive sealed-secret creation/rotation |
+| Chart | Release name | What it deploys |
+|---|---|---|
+| `brighter-app/` | `brighter` | App services + Redis + CloudNativePG cluster |
+| `brighter-obs/` | `brighter-obs` | Tempo, Loki, Promtail, Grafana, Prometheus, OTEL Collector |
 
 ```bash
-# Local (Minikube)
-helm dependency update
-helm install brighter . -f values.yaml -f values.local.yaml
+# App — install
+helm dependency update ./brighter-app
+helm install brighter ./brighter-app -f brighter-app/values.yaml -f brighter-app/values.prod.yaml --namespace brighter
 
-# Upgrade (prod — only changed services)
-helm upgrade brighter . -f values.yaml -f values.prod.yaml \
-  --set "users-ms.image.tag=<sha>"
+# App — upgrade (specify only changed services)
+helm upgrade brighter ./brighter-app -f brighter-app/values.yaml -f brighter-app/values.prod.yaml \
+  --set "users-ms.image.tag=<sha>" --namespace brighter
 
 helm rollback brighter   # instant rollback
 ```
 
 **Key secrets:** `brighter-db-app` (created by CloudNativePG — URI must use `asyncpg://` scheme, not `postgresql://`), `users-ms-secrets` (SECRET_KEY, GOOGLE_CLIENT_ID), `payments-ms-secrets` (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET), `notifications-ms-secrets` (RESEND_API_KEY).
 
-See `brighter-k8s/README.md` for full prod setup (k3s, DNS, CI image push).
+See `brighter-k8s/CLAUDE.md` for the full chart structure, secrets table, and gotchas.
 
 ---
 
@@ -192,3 +188,10 @@ Three modes:
 | Services-only (silent) | `docker compose up -d` | Services only; SDK initialises but BatchSpanProcessor silently drops spans (no crash) |
 
 Grafana: http://localhost:3000 (anonymous admin, no login required in dev).
+
+## Git & Branch Workflow
+
+- **Branch off `main`**: infra changes use `feat/<slug>` or `chore/<slug>` branches, PRed directly to `main` — no `dev` staging layer for infra
+- **Approval required**: at least one human approval before merging
+- **CI must be green**: all checks must pass before merging
+- **Branch cleanup**: delete merged branches periodically — keep them for a while for reference, then clean up
