@@ -214,6 +214,13 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
       LOG_COLORIZE: "true"
+      # Guest check-in flow (BTR-15) — dev defaults only, override via .env in prod.
+      BOOKING_FIELD_ENCRYPTION_KEY: ${BOOKING_FIELD_ENCRYPTION_KEY:-GlEfgE9cfoMeikHI0XK3WkO-WhX35lB-wvG1CmUQ_0g=}
+      CHECKIN_TOKEN_SECRET: ${CHECKIN_TOKEN_SECRET:-dev-checkin-token-secret-change-me}
+      INTERNAL_CRON_SECRET: ${INTERNAL_CRON_SECRET:-dev-internal-cron-secret-change-me}
+      CHECKIN_TOKEN_GRACE_DAYS: ${CHECKIN_TOKEN_GRACE_DAYS:-1}
+      CHECKIN_DISPATCH_LEAD_DAYS: ${CHECKIN_DISPATCH_LEAD_DAYS:-2}
+      BOOKING_PURGE_WINDOW_DAYS: ${BOOKING_PURGE_WINDOW_DAYS:-14}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health/ready').status==200 else 1)"]
       interval: 5s
@@ -237,6 +244,15 @@ services:
       - "traefik.http.routers.bookings-public.middlewares=api-strip"
       - "traefik.http.routers.bookings-public.service=bookings-svc"
       - "traefik.http.routers.bookings-public.priority=10"
+      # no auth: public guest check-in "lobby" — the token IS the credential,
+      # so these must never go through jwt-auth (BTR-15). /internal/* is never
+      # matched by any router here, so it stays unreachable through Traefik;
+      # the CronJob reaches it directly on the backend network with a secret.
+      - "traefik.http.routers.bookings-checkin.rule=PathPrefix(`/api/checkin`)"
+      - "traefik.http.routers.bookings-checkin.entrypoints=web"
+      - "traefik.http.routers.bookings-checkin.middlewares=api-strip"
+      - "traefik.http.routers.bookings-checkin.service=bookings-svc"
+      - "traefik.http.routers.bookings-checkin.priority=10"
       # protected
       - "traefik.http.routers.bookings.rule=PathPrefix(`/api/bookings`)"
       - "traefik.http.routers.bookings.entrypoints=web"
@@ -244,6 +260,32 @@ services:
       - "traefik.http.routers.bookings.service=bookings-svc"
       - "traefik.http.routers.bookings.priority=5"
       - "traefik.http.services.bookings-svc.loadbalancer.server.port=8002"
+
+  # Guest check-in dispatch/purge driver (BTR-15). Opt-in via the `cron`
+  # profile so it never runs on a normal `docker compose up`. Mirrors the two
+  # k8s CronJobs: calls the bookings-ms /internal endpoints directly on the
+  # backend network (never through Traefik) with the shared cron secret.
+  # Runs a sweep on start, then every 24h.
+  checkin-cron:
+    image: curlimages/curl:8.11.1
+    profiles: ["cron"]
+    depends_on:
+      - bookings-ms
+    networks:
+      - backend
+    environment:
+      INTERNAL_CRON_SECRET: ${INTERNAL_CRON_SECRET:-dev-internal-cron-secret-change-me}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          curl -fsS -X POST http://bookings-ms:8002/internal/checkin/dispatch \
+            -H "Authorization: Bearer $${INTERNAL_CRON_SECRET}" || true
+          curl -fsS -X POST http://bookings-ms:8002/internal/checkin/purge \
+            -H "Authorization: Bearer $${INTERNAL_CRON_SECRET}" || true
+          sleep 86400
+        done
 
   payments-ms:
     build: ../brighter-payments-ms
