@@ -99,8 +99,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-120}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      # Set to "1" to disable slowapi rate limiting (e.g. e2e, where every
-      # request shares one Traefik-sourced IP bucket). Empty => limits on.
+      # Set to disable rate limiting (the e2e suite shares one Traefik-sourced IP
+      # bucket and would otherwise hit the per-minute registration cap).
       SLOWAPI_NO_LIMITS: ${SLOWAPI_NO_LIMITS:-}
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
