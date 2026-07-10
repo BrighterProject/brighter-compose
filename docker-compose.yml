@@ -270,7 +270,8 @@ services:
     image: curlimages/curl:8.11.1
     profiles: ["cron"]
     depends_on:
-      - bookings-ms
+      bookings-ms:
+        condition: service_healthy
     networks:
       - backend
     environment:
