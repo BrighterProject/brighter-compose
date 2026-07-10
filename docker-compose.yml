@@ -375,7 +375,7 @@ services:
     environment:
       DB_URL: ${DB_URL:-postgres://brighter:brighter@db:5432/brighter}
       RESEND_API_KEY: ${RESEND_API_KEY:-re_test_placeholder}
-      RESEND_API_URL: ${RESEND_API_URL:-}
+      RESEND_API_URL: ${RESEND_API_URL:-https://api.resend.com}
       # Email delivery transport: "resend" (prod) or "smtp" (dev/e2e → mailpit).
       # The e2e workflow sets EMAIL_TRANSPORT=smtp so verification mail lands in mailpit.
       EMAIL_TRANSPORT: ${EMAIL_TRANSPORT:-resend}
