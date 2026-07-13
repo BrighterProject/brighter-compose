@@ -120,6 +120,21 @@ docker compose -f docker-compose.yml up
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
+### Dev seeding (`scripts/seed_all.sh`)
+
+The three service-level seed scripts (`brighter-users-ms/scripts/seed.py`, `brighter-payments-ms/scripts/seed_dev.py`, `brighter-properties-ms/scripts/seed.py`) are independent and, run in isolation, produce unrelated data — e.g. seeded properties belonged to a placeholder owner UUID with no user or subscription behind it. `scripts/seed_all.sh` runs them in dependency order against the running dev stack so the result is coherent: the dev user `owner@liberhack.org` (dev_owner_sub, fixed UUID `a0000000-0000-0000-0000-000000000002`) ends up with both an active Starter subscription *and* the seeded properties.
+
+```bash
+docker compose up -d
+./scripts/seed_all.sh            # seed users, subscription, properties
+./scripts/seed_all.sh --force    # also re-seed properties if some already exist
+./scripts/seed_all.sh --reset    # drop+recreate the DB, then seed fresh
+```
+
+`--reset` drops and recreates the shared `brighter` Postgres database, re-applies the Bulgarian FTS config (`brighter-postgres/init-bulgarian-fts.sql` — per-database, only auto-installed on first cluster init, and required by properties-ms's FTS columns), then restarts the five backend containers and waits for them to report healthy before seeding. It deliberately does **not** run `tortoise ... migrate`: every service calls `ms_core.setup_app(..., generate_schemas=True)`, which creates its own tables from its models on boot. Don't add a manual migrate step here — all five services share one physical database *and* the same Tortoise app label (`"models"`), so the migration-tracking table's `UNIQUE(app, name)` constraint collides across services (every service's first migration is literally named `0001_initial`) and silently skips real per-service migrations, leaving tables missing.
+
+`brighter-properties-ms/scripts/seed.py` accepts a `SEED_OWNER_ID` env var (defaults to an unrelated placeholder UUID for standalone use) — the orchestrator overrides it to dev_owner_sub. `owner2@liberhack.org` (dev_owner_unsub) is deliberately left without properties/subscription to exercise the no-subscription path.
+
 ### Kubernetes (`brighter-k8s/`)
 
 Two separate Helm releases (split to stay under Kubernetes' 1 MiB secret limit). Traefik + CloudNativePG are installed separately via `scripts/prerequisites.sh` (they install CRDs that must exist before `helm install`).
